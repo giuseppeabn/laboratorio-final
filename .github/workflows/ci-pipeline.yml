@@ -29,6 +29,9 @@ jobs:
       - name: Clonar repositorio
         uses: actions/checkout@v3
 
+      - name: Instalar dependencias Node
+        run: npm install
+
       - name: Ejecutar Dependency Check
         run: |
           mkdir dependency-check-report
@@ -61,7 +64,10 @@ jobs:
 
       - name: Análisis con Trivy
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 1 --severity CRITICAL,HIGH,MEDIUM movies-app
+           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 1 --severity CRITICAL,HIGH,MEDIUM movies-app
+        # run: |
+        #   docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH,MEDIUM movies-app || true
+
 
   deploy:
     name: Despliegue Local
