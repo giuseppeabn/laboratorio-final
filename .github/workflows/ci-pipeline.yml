@@ -16,8 +16,15 @@ jobs:
       - name: Configurar Docker
         uses: docker/setup-buildx-action@v2
 
-      - name: Ejecutar SAST (SonarCloud)
-        run: echo "Aquí va SonarCloud o SAST simulado"
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        with:
+          args: >
+            -Dsonar.projectKey=giuseppeabn
+            -Dsonar.organization=giuseppeabn
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
 
       - name: Ejecutar SCA (Dependency Check)
         run: echo "Aquí va Dependency Check o similar"
