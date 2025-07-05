@@ -6,15 +6,12 @@ on:
       - devsecops-pipeline
 
 jobs:
-  build:
+  sast:
+    name: Análisis SAST (SonarCloud)
     runs-on: ubuntu-latest
-
     steps:
       - name: Clonar repositorio
         uses: actions/checkout@v3
-
-      - name: Configurar Docker
-        uses: docker/setup-buildx-action@v2
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
@@ -25,19 +22,66 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
+  sca:
+    name: Análisis SCA (Dependency Check)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v3
 
-      - name: Ejecutar SCA (Dependency Check)
+      - name: Ejecutar Dependency Check
         run: |
-          docker run --rm -v $(pwd):/src owasp/dependency-check --scan /src --format "ALL"
+          mkdir dependency-check-report
+          docker run --rm -v $(pwd):/src owasp/dependency-check \
+            --scan /src \
+            --format "ALL" \
+            --out /src/dependency-check-report \
+            --failOnCVSS 5.0
 
-      - name: Construir imagen Docker
+  build:
+    name: Construcción de Imagen Docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v3
+
+      - name: Construir imagen
         run: docker build -t movies-app .
 
-      - name: Análisis de seguridad de imagen (Trivy)ß
-        run: echo "Aquí va Trivy o similar"
+  image-security:
+    name: Análisis de Seguridad de Imagen (Trivy)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v3
 
-      - name: Desplegar aplicación (Minikube o Docker local)
-        run: echo "Aquí va el despliegue"
+      - name: Construir imagen (requerido para análisis)
+        run: docker build -t movies-app .
 
-      - name: Análisis DAST (OWASP ZAP)
-        run: echo "Aquí va ZAP o similar"
+      - name: Análisis con Trivy
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 1 --severity CRITICAL,HIGH,MEDIUM movies-app
+
+  deploy:
+    name: Despliegue Local
+    runs-on: ubuntu-latest
+    needs: image-security
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v3
+
+      - name: Construir imagen
+        run: docker build -t movies-app .
+
+      - name: Desplegar en Docker
+        run: docker run -d -p 8080:8080 movies-app
+
+  dast:
+    name: Análisis DAST (OWASP ZAP)
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: OWASP ZAP Scan
+        run: |
+          docker run -t owasp/zap2docker-stable zap-baseline.py -t http://localhost:8080 -r zap_report.html || true
