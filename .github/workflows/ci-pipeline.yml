@@ -22,6 +22,13 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
+      - name: Subir reporte Sonar (opcional si quieres adjuntar logs)
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: sonar-report
+          path: .scannerwork # adjuntar los archivos de Sonar
+
   sca:
     name: Análisis SCA (Dependency Check)
     runs-on: ubuntu-latest
@@ -41,6 +48,12 @@ jobs:
             --out /src/dependency-check-report \
             --failOnCVSS 5.0
 
+      - name: Subir reporte Dependency Check
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: dependency-check-report
+          path: dependency-check-report
 
   build:
     name: Construcción de Imagen Docker
@@ -64,11 +77,16 @@ jobs:
         run: docker build -t movies-app .
 
       - name: Análisis con Trivy
-        #run: |
-           #docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 1 --severity CRITICAL,HIGH,MEDIUM movies-app
         run: |
            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH,MEDIUM movies-app || true
 
+      - name: Subir reporte Trivy
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: trivy-report
+          path: trivy-report.txt
+        continue-on-error: true
 
   deploy:
     name: Despliegue Local
@@ -84,11 +102,22 @@ jobs:
       - name: Desplegar en Docker
         run: docker run -d -p 8080:8080 movies-app
 
-  dast:
-    name: Análisis DAST (OWASP ZAP)
-    runs-on: ubuntu-latest
-    needs: deploy
-    steps:
-      - name: OWASP ZAP Scan
-        run: |
-          docker run -t owasp/zap2docker-stable zap-baseline.py -t http://localhost:8080 -r zap_report.html || true
+dast:
+  name: Análisis DAST (OWASP ZAP)
+  runs-on: ubuntu-latest
+  needs: deploy
+  steps:
+    - name: Descargar imagen OWASP ZAP
+      run: docker pull owasp/zap2docker-stable
+
+    - name: OWASP ZAP Scan
+      run: |
+        docker run -t owasp/zap2docker-stable zap-baseline.py -t http://localhost:8080 -r zap_report.html || true
+
+    - name: Subir reporte OWASP ZAP
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: zap-report
+        path: zap_report.html
+
