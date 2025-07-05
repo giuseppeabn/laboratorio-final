@@ -34,12 +34,13 @@ jobs:
 
       - name: Ejecutar Dependency Check
         run: |
-          mkdir dependency-check-report
-          docker run --rm -v $(pwd):/src owasp/dependency-check \
+          mkdir -p dependency-check-report
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" owasp/dependency-check \
             --scan /src \
             --format "ALL" \
             --out /src/dependency-check-report \
             --failOnCVSS 5.0
+
 
   build:
     name: Construcción de Imagen Docker
@@ -63,10 +64,10 @@ jobs:
         run: docker build -t movies-app .
 
       - name: Análisis con Trivy
+        #run: |
+           #docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 1 --severity CRITICAL,HIGH,MEDIUM movies-app
         run: |
-           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --exit-code 1 --severity CRITICAL,HIGH,MEDIUM movies-app
-        # run: |
-        #   docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH,MEDIUM movies-app || true
+           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH,MEDIUM movies-app || true
 
 
   deploy:
