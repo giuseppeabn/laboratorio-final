@@ -27,7 +27,8 @@ jobs:
 
 
       - name: Ejecutar SCA (Dependency Check)
-        run: echo "Aquí va Dependency Check o similar"
+        run: |
+          docker run --rm -v $(pwd):/src owasp/dependency-check --scan /src --format "ALL"
 
       - name: Construir imagen Docker
         run: docker build -t movies-app .
