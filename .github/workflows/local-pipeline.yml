@@ -1,0 +1,56 @@
+name: DevSecOps Pipeline Local
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pipeline-local:
+    name: Pipeline Local Completo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v3
+
+      # Simulación SonarCloud
+      - name: Análisis SAST (Simulado)
+        run: |
+          mkdir -p sonar-report
+          echo "Simulando análisis SonarCloud..." > sonar-report/fake-sonar-report.txt
+
+      # Dependency Check
+      - name: Análisis SCA (Dependency Check)
+        run: |
+          mkdir -p dependency-check-report
+          docker run --rm -v $PWD:/src -v $PWD/dependency-check-report:/report owasp/dependency-check \
+            --scan /src --format "ALL" --out /report --failOnCVSS 5.0 || true
+
+      # Construcción imagen
+      - name: Construir imagen
+        run: docker build -t movies-app .
+
+      # Trivy
+      - name: Análisis de Seguridad de Imagen (Trivy)
+        run: |
+          mkdir -p trivy-report
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $PWD/trivy-report:/report aquasec/trivy image \
+            --format json --output /report/trivy-report.json --severity CRITICAL,HIGH,MEDIUM movies-app || true
+
+      # Despliegue local
+      - name: Desplegar en Docker (puerto 9090)
+        run: docker run -d -p 9090:8080 movies-app
+
+      # OWASP ZAP
+      - name: Análisis DAST (OWASP ZAP)
+        run: |
+          mkdir -p zap-report
+          docker run -v $PWD/zap-report:/zap/wrk -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+            -t http://localhost:9090 -r zap_report.html || true
+
+      # Consolidar reportes
+      - name: Consolidar Reportes Finales
+        run: |
+          mkdir -p final-report
+          cp -r sonar-report/* final-report/ || true
+          cp -r dependency-check-report/* final-report/ || true
+          cp -r trivy-report/* final-report/ || true
+          cp -r zap-report/* final-report/ || true
