@@ -24,7 +24,7 @@ jobs:
 
       - name: Subir reporte Sonar (opcional si quieres adjuntar logs)
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sonar-report
           path: .scannerwork # adjuntar los archivos de Sonar
@@ -50,7 +50,7 @@ jobs:
 
       - name: Subir reporte Dependency Check
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-check-report
           path: dependency-check-report
@@ -82,7 +82,7 @@ jobs:
 
       - name: Subir reporte Trivy
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: trivy-report
           path: trivy-report.txt
@@ -116,7 +116,7 @@ jobs:
 
       - name: Subir reporte OWASP ZAP
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: zap-report
           path: zap_report.html
