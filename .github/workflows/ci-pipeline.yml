@@ -5,7 +5,7 @@ on:
 
 env:
   NODE_VERSION: '19'
-  APP_NAME: 'laboratorio-final-celula-movies'
+  APP_NAME: 'laboratorio-final'
 
 jobs:
   setup:
