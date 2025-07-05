@@ -20,8 +20,8 @@ jobs:
         uses: SonarSource/sonarcloud-github-action@master
         with:
           args: >
-            -Dsonar.projectKey=giuseppeabn
-            -Dsonar.organization=giuseppeabn
+              -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
+              -Dsonar.organization=${{ github.repository_owner }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
