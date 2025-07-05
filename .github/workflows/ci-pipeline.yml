@@ -1,4 +1,4 @@
-name: Examen Final DEVOPS
+name: Examen Final
 
 on:
   workflow_dispatch:
