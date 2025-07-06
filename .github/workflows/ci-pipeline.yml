@@ -278,3 +278,13 @@ jobs:
             echo ">>>>>>>>>> Siguiente analisis <<<<<<<<<<<"
 
           fi
+
+# -----------------------------------------------------------------------
+# --------------------------- DEPLOY ------------------------------------
+# -----------------------------------------------------------------------
+  DEPLOY:
+    needs: [ ImageSecurity, DAST, SCA, SAST ]
+    runs-on: self-hosted
+    steps:
+      - name: Desplegar aplicación
+        run: echo "Deploy"
