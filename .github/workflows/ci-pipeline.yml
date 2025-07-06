@@ -70,3 +70,31 @@ jobs:
             fi
           fi
 
+      - name: Ejecutar análisis SonarCloud
+        run: |
+          npx sonarqube-scanner \
+            -Dsonar.projectKey=giuseppeabn_laboratorio-final \
+            -Dsonar.organization=giuseppeabn \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.branch.name=main
+
+
+      - name: Validando resultado de SonarCloud
+        run: |
+          projectKey="giuseppeabn_laboratorio-final"
+          branchName="main"
+      
+          issueCount=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" \
+            "https://sonarcloud.io/api/issues/search?componentKeys=${projectKey}&branch=${branchName}&types=VULNERABILITY&severities=BLOCKER,CRITICAL,MAJOR" \
+            | jq '.total')
+
+          echo "Vulnerabilidades críticas/altas/medias encontradas: $issueCount"
+
+          if [ "$issueCount" -gt 0 ]; then
+            echo "Se encontraron vulnerabilidades críticas, altas o medias. Deteniendo el pipeline..."
+            exit 1
+          else
+            echo "No se encontraron vulnerabilidades críticas, altas ni medias. Continuando..."
+          fi
