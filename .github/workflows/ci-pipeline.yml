@@ -3,172 +3,70 @@ name: Examen Final
 on:
   push:
 
-env:
-  NODE_VERSION: '19'
-  APP_NAME: 'laboratorio-final'
 
 jobs:
-  setup:
-    name: "Repository Setup & Environment Validation"
+  BUILD:
     runs-on: ubuntu-latest
-    outputs:
-      node-version: ${{ env.NODE_VERSION }}
-      app-name: ${{ env.APP_NAME }}
-      repository-url: ${{ github.repositoryUrl }}
-      commit-sha: ${{ github.sha }}
-      branch-name: ${{ github.ref_name }}
-      should-run-security: ${{ steps.security-check.outputs.run-security }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Validate Repository Structure
-        run: |
-          echo "🔍 Validating repository structure..."
-
-          if [ ! -f "package.json" ]; then
-            echo "ERROR: package.json not found"
-            exit 1
-          fi
-
-          if [ ! -f "package-lock.json" ]; then
-            echo "ERROR: package-lock.json not found - required for reproducible builds"
-            exit 1
-          fi
-
-          if [ ! -f "Dockerfile" ]; then
-            echo "ERROR: Dockerfile not found"
-            exit 1
-          fi
-
-          if [ ! -f "deployment.yml" ]; then
-            echo "ERROR: deployment.yml not found"
-            exit 1
-          fi
-
-          if [ ! -f "service.yml" ]; then
-            echo "ERROR: service.yml not found"
-            exit 1
-          fi
-
-          echo "Repository structure validation PASSED"
-
-      - name: Setup Node.js Environment
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: 'package-lock.json'
+          node-version: '22.17.0'
 
-      - name: Install Dependencies (Legacy Peer Deps)
-        run: |
-          npm ci --legacy-peer-deps --prefer-offline --no-audit --no-fund
-
-      - name: Security Pipeline Check
-        id: security-check
-        run: |
-          echo "run-security=true" >> $GITHUB_OUTPUT 
-
-      - name: Environment Information Summary
-        env:
-          REPO_NAME: ${{ github.repository }}
-          BRANCH_NAME: ${{ github.ref_name }}
-          COMMIT_SHA: ${{ github.sha }}
-        run: |
-          echo "## Repository Setup Complete" >> $GITHUB_STEP_SUMMARY
-          echo "- **Repository**: $REPO_NAME" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: $BRANCH_NAME" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit SHA**: \`$COMMIT_SHA\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Node.js Version**: ${{ env.NODE_VERSION }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Application**: ${{ env.APP_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment**: auto (no manual input)" >> $GITHUB_STEP_SUMMARY
-
-      - name: Setup Complete Notification
-        env:
-          REPO_NAME: ${{ github.repository }}
-          BRANCH_NAME: ${{ github.ref_name }}
-          COMMIT_SHA: ${{ github.sha }}
-        run: |
-          echo " Pipeline setup phase completed successfully!"
-          echo " Repository: $REPO_NAME"
-          echo " Branch: $BRANCH_NAME"
-          echo " Commit: $COMMIT_SHA"
-          echo " Environment: auto (no manual input)"
-
-
-  sast-scan:
-    name: "SAST - Static Code Analysis"
-    runs-on: ubuntu-latest
-    needs: setup
-    if: needs.setup.outputs.should-run-security == 'true'
-    steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Instalar dependencias (si no están instaladas)
+        run: npm install
+
+      - name: Compilar y empaquetar
+        run: |
+          npm run build
+
+      - name: Upload build output
+        uses: actions/upload-artifact@master
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: 'package-lock.json'
-
-      - name: Install Dependencies
-        run: npm ci --legacy-peer-deps --prefer-offline
-
-      - name: ESLint Security Analysis
-        run: npx eslint . --ext .ts,.tsx,.js,.jsx --format json --output-file eslint-results.json || true
-
-      - name: Install Semgrep for SAST
-        run: pip install semgrep
-
-      - name: Semgrep Static Analysis
-        run: semgrep --config=auto --json --output=semgrep-results.json --severity=ERROR --severity=WARNING --severity=INFO . || true
-
-      - name: Upload SAST Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: sast-results
-          path: |
-            eslint-results.json
-            semgrep-results.json
-
-
-  sca-scan:
-    name: "SCA - Dependency Security Scan"
+          name: build-artifact
+          path: ${{ github.workspace }}/.next
+          include-hidden-files: true
+  SAST:
+    needs: BUILD
     runs-on: ubuntu-latest
-    needs: setup
-    if: needs.setup.outputs.should-run-security == 'true'
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Download build artifact
+        uses: actions/download-artifact@master
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: 'package-lock.json'
+          name: build-artifact
+          path: ${{ github.workspace }}/.next
+          include-hidden-files: true
 
-      - name: Install Dependencies
-        run: npm ci --legacy-peer-deps --prefer-offline
+      - name: Validando existencia del proyecto en Sonar
+        run: |
+          response=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" -X POST 'https://sonarcloud.io/api/projects/create' \
+          -d "name=${{ github.event.repository.name }}" \
+          -d "organization=giuseppeabn" \
+          -d "project=${{ github.event.repository.name }}" \
+          -d "visibility=public")
 
-      - name: NPM Security Audit
-        run: npm audit --json > npm-audit.json || true
+          echo "Respuesta de Sonar: $response"
 
-      - name: Install Retire.js
-        run: npm install -g retire
+          if echo "$response" | grep -q "key already exists"; then
+            echo "El proyecto ya existe en SonarCloud"
+          else
+            echo "Proyecto creado exitosamente en SonarCloud"
+            rename_response=$(curl -s -X POST -u "${{ secrets.SONAR_TOKEN }}:" 'https://sonarcloud.io/api/project_branches/rename' \
+            -d "name=main" \
+            -d "project=${{ github.event.repository.name }}")
 
-      - name: Retire.js Dependency Check
-        run: retire --outputformat json --outputpath retire-results.json || true
+            echo "Respuesta de Rename: $rename_response"
 
-      - name: Upload SCA Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: sca-results
-          path: |
-            npm-audit.json
-            retire-results.json
+            if echo "$rename_response" | grep -q "doesn't exist"; then
+              echo "Error al renombrar rama"
+            else
+              echo "Rename exitoso"
+            fi
+          fi
+
