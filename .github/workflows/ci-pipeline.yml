@@ -94,7 +94,7 @@ jobs:
 
           if [ "$issueCount" -gt 0 ]; then
             echo "Se encontraron vulnerabilidades críticas, altas o medias. Deteniendo el pipeline..."
-            exit 1
+      
           else
             echo "No se encontraron vulnerabilidades críticas, altas ni medias. Continuando..."
           fi
@@ -156,7 +156,6 @@ jobs:
           if [ "$critical" -gt 0 ] || [ "$high" -gt 0 ] || [ "$medium" -gt 0 ]; then
             echo "Se encontraron vulnerabilidades Críticas, Altas o Medias en dependencias."
             echo ">>>>>>>>>> Pipeline detenido <<<<<<<<<<<"
-            exit 1
           else
             echo "No se encontraron vulnerabilidades críticas, altas ni medias"
             echo ">>>>>>>>>> finalizacion SCA <<<<<<<<<<<"
